@@ -50,7 +50,7 @@ namespace Kino
 
         Material _material;
 
-        RenderTexture _lastFrame;
+        RenderTexture _workBuffer;
         int _sequence;
 
         #endregion
@@ -63,17 +63,18 @@ namespace Kino
             _material = new Material(shader);
             _material.hideFlags = HideFlags.DontSave;
 
-            GetComponent<Camera>().depthTextureMode |= DepthTextureMode.Depth | DepthTextureMode.MotionVectors;
+            GetComponent<Camera>().depthTextureMode |=
+                DepthTextureMode.Depth | DepthTextureMode.MotionVectors;
 
             _sequence = 0;
         }
 
         void OnDisable()
         {
-            if (_lastFrame != null)
+            if (_workBuffer != null)
             {
-                RenderTexture.ReleaseTemporary(_lastFrame);
-                _lastFrame = null;
+                RenderTexture.ReleaseTemporary(_workBuffer);
+                _workBuffer = null;
             }
 
             DestroyImmediate(_material);
@@ -84,44 +85,49 @@ namespace Kino
         {
             if (_sequence == 0)
             {
-                // Store and hold this frame.
-                if (_lastFrame != null)
-                    RenderTexture.ReleaseTemporary(_lastFrame);
-
-                _lastFrame = RenderTexture.GetTemporary(source.width, source.height);
-
-                Graphics.Blit(source, _lastFrame);
+                // Update the working buffer with the current frame.
+                if (_workBuffer != null) RenderTexture.ReleaseTemporary(_workBuffer);
+                _workBuffer = RenderTexture.GetTemporary(source.width, source.height);
+                Graphics.Blit(source, _workBuffer);
 
                 // Blit without effect.
                 Graphics.Blit(source, destination);
             }
             else if (_sequence == 1)
             {
-                // Discard this frame; simply blit the last frame without effect.
-                Graphics.Blit(_lastFrame, destination);
+                // Clear the alpha channel of the working buffer.
+                var temp = RenderTexture.GetTemporary(source.width, source.height);
+                Graphics.Blit(_workBuffer, temp, _material, 0);
+                RenderTexture.ReleaseTemporary(_workBuffer);
+                _workBuffer = temp;
+
+                // Simply blit the working buffer because motion vectors
+                // might be not ready (because of camera switching).
+                Graphics.Blit(_workBuffer, destination);
+
+                // Automatically advance to the next step.
                 _sequence++;
             }
             else
             {
                 // Downsample the motion vector buffer.
-                var mv = RenderTexture.GetTemporary(source.width / 32, source.height / 32, 0, RenderTextureFormat.RGHalf);
+                var mv = RenderTexture.GetTemporary(source.width / 8, source.height / 8, 0, RenderTextureFormat.RGHalf);
                 mv.filterMode = FilterMode.Point;
-                Graphics.Blit(null, mv, _material, 0);
+                Graphics.Blit(null, mv, _material, 1);
 
                 // Moshing
-                var nextFrame = RenderTexture.GetTemporary(source.width, source.height);
+                var temp = RenderTexture.GetTemporary(source.width, source.height);
+                _material.SetTexture("_WorkTex", _workBuffer);
                 _material.SetTexture("_MotionTex", mv);
-                Graphics.Blit(_lastFrame, nextFrame, _material, 1);
+                Graphics.Blit(source, temp, _material, 2);
 
-                // Release the last frame.
-                RenderTexture.ReleaseTemporary(_lastFrame);
-                _lastFrame = nextFrame;
-
-                // Release the downsampled motion vector buffer.
+                // Update the state and release temporary objects.
                 RenderTexture.ReleaseTemporary(mv);
+                RenderTexture.ReleaseTemporary(_workBuffer);
+                _workBuffer = temp;
 
                 // Blit the result.
-                Graphics.Blit(nextFrame, destination);
+                Graphics.Blit(_workBuffer, destination);
             }
         }
 

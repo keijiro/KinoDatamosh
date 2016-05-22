@@ -17,13 +17,8 @@ public class CameraSwitcher : MonoBehaviour
         while (true)
         {
             yield return new WaitForSeconds(Interval);
-
             SwitchCamera();
             KickGlitch();
-
-            yield return new WaitForSeconds(Interval);
-
-            ResetGlitch();
         }
     }
 
@@ -35,17 +30,15 @@ public class CameraSwitcher : MonoBehaviour
         follow.target = _targetList[_targetIndex];
         follow.Snap();
 
-        transform.localRotation =
-            Quaternion.AngleAxis(Random.Range(-180.0f, 180.0f), Vector3.up);
+        transform.localRotation = Quaternion.Euler(
+            Random.Range(-20.0f, 20.0f),
+            Random.Range(-180.0f, 180.0f),
+            Random.Range(-30.0f, 30.0f)
+        );
     }
 
     void KickGlitch()
     {
         FindObjectOfType<Kino.Datamosh>().Glitch();
-    }
-
-    void ResetGlitch()
-    {
-        FindObjectOfType<Kino.Datamosh>().Reset();
     }
 }
