@@ -33,17 +33,13 @@ namespace Kino
         /// Start glitching.
         public void Glitch()
         {
-            _bang = true;
+            _sequence = 1;
         }
 
         /// Force to end glitching.
         public void Reset()
         {
-            if (_lastFrame != null)
-            {
-                RenderTexture.ReleaseTemporary(_lastFrame);
-                _lastFrame = null;
-            }
+            _sequence = 0;
         }
 
         #endregion
@@ -55,7 +51,7 @@ namespace Kino
         Material _material;
 
         RenderTexture _lastFrame;
-        bool _bang;
+        int _sequence;
 
         #endregion
 
@@ -68,6 +64,8 @@ namespace Kino
             _material.hideFlags = HideFlags.DontSave;
 
             GetComponent<Camera>().depthTextureMode |= DepthTextureMode.Depth | DepthTextureMode.MotionVectors;
+
+            _sequence = 0;
         }
 
         void OnDisable()
@@ -84,18 +82,26 @@ namespace Kino
 
         void OnRenderImage(RenderTexture source, RenderTexture destination)
         {
-            if (_bang)
+            if (_sequence == 0)
             {
-                if (_lastFrame == null)
-                    _lastFrame = RenderTexture.GetTemporary(source.width, source.height);
+                // Store and hold this frame.
+                if (_lastFrame != null)
+                    RenderTexture.ReleaseTemporary(_lastFrame);
 
-                // Capture this frame.
+                _lastFrame = RenderTexture.GetTemporary(source.width, source.height);
+
                 Graphics.Blit(source, _lastFrame);
-                Graphics.Blit(source, destination);
 
-                _bang = false;
+                // Blit without effect.
+                Graphics.Blit(source, destination);
             }
-            else if (_lastFrame != null)
+            else if (_sequence == 1)
+            {
+                // Discard this frame; simply blit the last frame without effect.
+                Graphics.Blit(_lastFrame, destination);
+                _sequence++;
+            }
+            else
             {
                 // Downsample the motion vector buffer.
                 var mv = RenderTexture.GetTemporary(source.width / 32, source.height / 32, 0, RenderTextureFormat.RGHalf);
@@ -116,11 +122,6 @@ namespace Kino
 
                 // Blit the result.
                 Graphics.Blit(nextFrame, destination);
-            }
-            else
-            {
-                // Do nothing.
-                Graphics.Blit(source, destination);
             }
         }
 
