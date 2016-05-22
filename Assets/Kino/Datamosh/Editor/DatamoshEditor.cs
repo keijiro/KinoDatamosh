@@ -30,8 +30,21 @@ namespace Kino
     [CustomEditor(typeof(Datamosh))]
     public class DatamoshEditor : Editor
     {
+        SerializedProperty _blockSize;
+
+        void OnEnable()
+        {
+            _blockSize = serializedObject.FindProperty("_blockSize");
+        }
+
         public override void OnInspectorGUI()
         {
+            serializedObject.Update();
+
+            EditorGUILayout.PropertyField(_blockSize);
+
+            serializedObject.ApplyModifiedProperties();
+
             EditorGUI.BeginDisabledGroup(!EditorApplication.isPlaying);
 
             if (GUILayout.Button("Glitch!"))

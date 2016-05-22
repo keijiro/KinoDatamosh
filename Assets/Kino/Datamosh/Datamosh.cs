@@ -30,6 +30,14 @@ namespace Kino
     {
         #region Public properties and methods
 
+        /// Size of compression block.
+        public int blockSize {
+            get { return Mathf.Max(4, _blockSize) ; }
+            set { _blockSize = value; }
+        }
+
+        [SerializeField] int _blockSize = 16;
+
         /// Start glitching.
         public void Glitch()
         {
@@ -83,6 +91,8 @@ namespace Kino
 
         void OnRenderImage(RenderTexture source, RenderTexture destination)
         {
+            _material.SetFloat("_BlockSize", _blockSize);
+
             if (_sequence == 0)
             {
                 // Update the working buffer with the current frame.
@@ -111,7 +121,11 @@ namespace Kino
             else
             {
                 // Downsample the motion vector buffer.
-                var mv = RenderTexture.GetTemporary(source.width / 8, source.height / 8, 0, RenderTextureFormat.RGHalf);
+                var mv = RenderTexture.GetTemporary(
+                    source.width / _blockSize,
+                    source.height / _blockSize,
+                    0, RenderTextureFormat.RGHalf
+                );
                 mv.filterMode = FilterMode.Point;
                 Graphics.Blit(null, mv, _material, 1);
 
