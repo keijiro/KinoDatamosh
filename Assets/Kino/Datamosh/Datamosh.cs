@@ -59,7 +59,18 @@ namespace Kino
         Material _material;
 
         RenderTexture _workBuffer;
+        RenderTexture _dispBuffer;
         int _sequence;
+
+        RenderTexture GetTemporaryDispBuffer(RenderTexture source)
+        {
+            return RenderTexture.GetTemporary(
+                source.width / _blockSize,
+                source.height / _blockSize,
+                0, RenderTextureFormat.ARGBHalf
+            );
+        }
+
 
         #endregion
 
@@ -85,6 +96,12 @@ namespace Kino
                 _workBuffer = null;
             }
 
+            if (_dispBuffer != null)
+            {
+                RenderTexture.ReleaseTemporary(_dispBuffer);
+                _dispBuffer = null;
+            }
+
             DestroyImmediate(_material);
             _material = null;
         }
@@ -105,11 +122,10 @@ namespace Kino
             }
             else if (_sequence == 1)
             {
-                // Clear the alpha channel of the working buffer.
-                var temp = RenderTexture.GetTemporary(source.width, source.height);
-                Graphics.Blit(_workBuffer, temp, _material, 0);
-                RenderTexture.ReleaseTemporary(_workBuffer);
-                _workBuffer = temp;
+                // Initialize the displacement buffer.
+                if (_dispBuffer != null) RenderTexture.ReleaseTemporary(_dispBuffer);
+                _dispBuffer = GetTemporaryDispBuffer(source);
+                Graphics.Blit(null, _dispBuffer, _material, 0);
 
                 // Simply blit the working buffer because motion vectors
                 // might be not ready (because of camera switching).
@@ -120,23 +136,21 @@ namespace Kino
             }
             else
             {
-                // Downsample the motion vector buffer.
-                var mv = RenderTexture.GetTemporary(
-                    source.width / _blockSize,
-                    source.height / _blockSize,
-                    0, RenderTextureFormat.RGHalf
-                );
-                mv.filterMode = FilterMode.Point;
-                Graphics.Blit(null, mv, _material, 1);
+                // Update the displaceent buffer.
+                var disp = GetTemporaryDispBuffer(source);
+                Graphics.Blit(_dispBuffer, disp, _material, 1);
+                RenderTexture.ReleaseTemporary(_dispBuffer);
+                _dispBuffer = disp;
 
                 // Moshing
                 var temp = RenderTexture.GetTemporary(source.width, source.height);
                 _material.SetTexture("_WorkTex", _workBuffer);
-                _material.SetTexture("_MotionTex", mv);
+                _material.SetTexture("_DispTex", _dispBuffer);
+                _workBuffer.filterMode = FilterMode.Point;
+                _dispBuffer.filterMode = FilterMode.Point;
                 Graphics.Blit(source, temp, _material, 2);
 
                 // Update the state and release temporary objects.
-                RenderTexture.ReleaseTemporary(mv);
                 RenderTexture.ReleaseTemporary(_workBuffer);
                 _workBuffer = temp;
 

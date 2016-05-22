@@ -4,7 +4,7 @@
     {
         _MainTex("", 2D) = ""{}
         _WorkTex("", 2D) = ""{}
-        _MotionTex("", 2D) = ""{}
+        _DispTex("", 2D) = ""{}
     }
 
     CGINCLUDE
@@ -13,7 +13,7 @@
 
     sampler2D _MainTex;
     sampler2D _WorkTex;
-    sampler2D _MotionTex;
+    sampler2D _DispTex;
 
     sampler2D_half _CameraMotionVectorsTexture;
     float4 _CameraMotionVectorsTexture_TexelSize;
@@ -22,28 +22,38 @@
 
     half4 frag_init(v2f_img i) : SV_Target
     {
-        half3 c = tex2D(_MainTex, i.uv).rgb;
-        return half4(c, 1);
+        return 0;
     }
+
+// Pseudo random number generator with 2D argument
+float UVRandom(float u, float v)
+{
+    float f = dot(float2(12.9898, 78.233), float2(u, v));
+    return frac(43758.5453 * sin(f));
+}
 
     half4 frag_prepare(v2f_img i) : SV_Target
     {
+        half alpha = tex2D(_MainTex, i.uv).a;
+
         half2 mv = tex2D(_CameraMotionVectorsTexture, i.uv).rg;
-        mv = round(mv * _ScreenParams.xy) * (_ScreenParams.zw - 1);
-        return half4(mv, 0, 0);
+        mv = round(mv * _ScreenParams.xy);
+
+        alpha += any(abs(mv) > _BlockSize * (0.3 + 10 * UVRandom(i.uv.x, i.uv.y + _Time.y)));
+
+        mv *= (_ScreenParams.zw - 1);
+
+        return half4(mv, 0, alpha > 0);
     }
 
     half4 frag_mosh(v2f_img i) : SV_Target
     {
-        half2 mv = tex2D(_MotionTex, i.uv).rg;
-        half4 sc = tex2D(_MainTex, i.uv);
-        half4 mc = tex2D(_WorkTex, i.uv - mv * 0.95);
-        half4 mc2 = tex2D(_WorkTex, i.uv);
+        half4 d = tex2D(_DispTex, i.uv);
 
-        half alpha = mc.a * mc2.a * any(abs(mv) < ((_ScreenParams.zw - 1) * _BlockSize * 1.5));
-        alpha = alpha > 0.1;
+        half4 c0 = tex2D(_MainTex, i.uv);
+        half4 c1 = tex2D(_WorkTex, i.uv - d.xy * 0.6);
 
-        return half4(lerp(sc.rgb, mc.rgb, alpha), alpha);
+        return half4(lerp(c1.rgb, c0.rgb, d.a), c0.a);
     }
 
     ENDCG
