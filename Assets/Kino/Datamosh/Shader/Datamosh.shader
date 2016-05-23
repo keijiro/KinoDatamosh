@@ -20,6 +20,7 @@
 
     float _BlockSize;
     float _VelocityScale;
+    float _RandomMove;
 
     // PRNG
     float UVRandom(float2 uv)
@@ -52,7 +53,7 @@
             UVRandom(uv + t0.xy),
             UVRandom(uv + t0.yx)
         );
-        mv += (rmv - 0.5) * 0.0;
+        mv += (rmv - 0.5) * _RandomMove;
 
         // pixel perfect snap
         mv = round(mv);

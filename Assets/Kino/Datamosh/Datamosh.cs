@@ -46,9 +46,19 @@ namespace Kino
             set { _velocityScale = value; }
         }
 
-        [SerializeField]
+        [SerializeField, Range(0, 2)]
         [Tooltip("Scale factor for velocity vectors.")]
         float _velocityScale = 0.8f;
+
+        /// Amount of random displacement.
+        public float randomMove {
+            get { return _randomMove; }
+            set { _randomMove = value; }
+        }
+
+        [SerializeField, Range(0, 2)]
+        [Tooltip("Amount of random displacement.")]
+        float _randomMove = 0.4f;
 
         /// Start glitching.
         public void Glitch()
@@ -132,6 +142,7 @@ namespace Kino
         {
             _material.SetFloat("_BlockSize", _blockSize);
             _material.SetFloat("_VelocityScale", _velocityScale);
+            _material.SetFloat("_RandomMove", _randomMove);
 
             if (_sequence == 0)
             {

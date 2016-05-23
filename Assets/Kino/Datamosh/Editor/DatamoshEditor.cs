@@ -32,11 +32,13 @@ namespace Kino
     {
         SerializedProperty _blockSize;
         SerializedProperty _velocityScale;
+        SerializedProperty _randomMove;
 
         void OnEnable()
         {
             _blockSize = serializedObject.FindProperty("_blockSize");
             _velocityScale = serializedObject.FindProperty("_velocityScale");
+            _randomMove = serializedObject.FindProperty("_randomMove");
         }
 
         public override void OnInspectorGUI()
@@ -45,6 +47,7 @@ namespace Kino
 
             EditorGUILayout.PropertyField(_blockSize);
             EditorGUILayout.PropertyField(_velocityScale);
+            EditorGUILayout.PropertyField(_randomMove);
 
             serializedObject.ApplyModifiedProperties();
 
