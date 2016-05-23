@@ -30,13 +30,25 @@ namespace Kino
     {
         #region Public properties and methods
 
-        /// Size of compression block.
+        /// Size of compression macroblock.
         public int blockSize {
             get { return Mathf.Max(4, _blockSize) ; }
             set { _blockSize = value; }
         }
 
-        [SerializeField] int _blockSize = 16;
+        [SerializeField]
+        [Tooltip("Size of compression macroblock.")]
+        int _blockSize = 16;
+
+        /// Scale factor for velocity vectors.
+        public float velocityScale {
+            get { return _velocityScale; }
+            set { _velocityScale = value; }
+        }
+
+        [SerializeField]
+        [Tooltip("Scale factor for velocity vectors.")]
+        float _velocityScale = 0.8f;
 
         /// Start glitching.
         public void Glitch()
@@ -44,7 +56,7 @@ namespace Kino
             _sequence = 1;
         }
 
-        /// Force to end glitching.
+        /// Stop glitching.
         public void Reset()
         {
             _sequence = 0;
@@ -54,23 +66,38 @@ namespace Kino
 
         #region Private properties
 
-        [SerializeField] Shader _shader;
+        [SerializeField]
+        Shader _shader;
 
         Material _material;
 
-        RenderTexture _workBuffer;
-        RenderTexture _dispBuffer;
+        RenderTexture _workBuffer; // working buffer
+        RenderTexture _dispBuffer; // displacement buffer
+
         int _sequence;
 
-        RenderTexture GetTemporaryDispBuffer(RenderTexture source)
+        RenderTexture NewWorkBuffer(RenderTexture source)
         {
-            return RenderTexture.GetTemporary(
+            var rt =  RenderTexture.GetTemporary(source.width, source.height);
+            //rt.filterMode = FilterMode.Point;
+            return rt;
+        }
+
+        RenderTexture NewDispBuffer(RenderTexture source)
+        {
+            var rt = RenderTexture.GetTemporary(
                 source.width / _blockSize,
                 source.height / _blockSize,
                 0, RenderTextureFormat.ARGBHalf
             );
+            rt.filterMode = FilterMode.Point;
+            return rt;
         }
 
+        void ReleaseBuffer(RenderTexture buffer)
+        {
+            if (buffer != null) RenderTexture.ReleaseTemporary(buffer);
+        }
 
         #endregion
 
@@ -82,7 +109,8 @@ namespace Kino
             _material = new Material(shader);
             _material.hideFlags = HideFlags.DontSave;
 
-            GetComponent<Camera>().depthTextureMode |=
+            var camera = GetComponent<Camera>();
+            camera.depthTextureMode |=
                 DepthTextureMode.Depth | DepthTextureMode.MotionVectors;
 
             _sequence = 0;
@@ -90,17 +118,11 @@ namespace Kino
 
         void OnDisable()
         {
-            if (_workBuffer != null)
-            {
-                RenderTexture.ReleaseTemporary(_workBuffer);
-                _workBuffer = null;
-            }
+            ReleaseBuffer(_workBuffer);
+            _workBuffer = null;
 
-            if (_dispBuffer != null)
-            {
-                RenderTexture.ReleaseTemporary(_dispBuffer);
-                _dispBuffer = null;
-            }
+            ReleaseBuffer(_dispBuffer);
+            _dispBuffer = null;
 
             DestroyImmediate(_material);
             _material = null;
@@ -109,12 +131,15 @@ namespace Kino
         void OnRenderImage(RenderTexture source, RenderTexture destination)
         {
             _material.SetFloat("_BlockSize", _blockSize);
+            _material.SetFloat("_VelocityScale", _velocityScale);
 
             if (_sequence == 0)
             {
+                // Step 0: no effect, just keep the last frame.
+
                 // Update the working buffer with the current frame.
-                if (_workBuffer != null) RenderTexture.ReleaseTemporary(_workBuffer);
-                _workBuffer = RenderTexture.GetTemporary(source.width, source.height);
+                ReleaseBuffer(_workBuffer);
+                _workBuffer = NewWorkBuffer(source);
                 Graphics.Blit(source, _workBuffer);
 
                 // Blit without effect.
@@ -122,37 +147,36 @@ namespace Kino
             }
             else if (_sequence == 1)
             {
+                // Step 1: start effect, no moshing.
+
                 // Initialize the displacement buffer.
-                if (_dispBuffer != null) RenderTexture.ReleaseTemporary(_dispBuffer);
-                _dispBuffer = GetTemporaryDispBuffer(source);
+                ReleaseBuffer(_dispBuffer);
+                _dispBuffer = NewDispBuffer(source);
                 Graphics.Blit(null, _dispBuffer, _material, 0);
 
                 // Simply blit the working buffer because motion vectors
-                // might be not ready (because of camera switching).
+                // might not be ready (because of camera switching).
                 Graphics.Blit(_workBuffer, destination);
 
-                // Automatically advance to the next step.
                 _sequence++;
             }
             else
             {
-                // Update the displaceent buffer.
-                var disp = GetTemporaryDispBuffer(source);
-                Graphics.Blit(_dispBuffer, disp, _material, 1);
-                RenderTexture.ReleaseTemporary(_dispBuffer);
-                _dispBuffer = disp;
+                // Step 2: apply effect.
 
-                // Moshing
-                var temp = RenderTexture.GetTemporary(source.width, source.height);
+                // Update the displaceent buffer.
+                var newDisp = NewDispBuffer(source);
+                Graphics.Blit(_dispBuffer, newDisp, _material, 1);
+                ReleaseBuffer(_dispBuffer);
+                _dispBuffer = newDisp;
+
+                // Moshing!
+                var newWork = NewWorkBuffer(source);
                 _material.SetTexture("_WorkTex", _workBuffer);
                 _material.SetTexture("_DispTex", _dispBuffer);
-                _workBuffer.filterMode = FilterMode.Point;
-                _dispBuffer.filterMode = FilterMode.Point;
-                Graphics.Blit(source, temp, _material, 2);
-
-                // Update the state and release temporary objects.
-                RenderTexture.ReleaseTemporary(_workBuffer);
-                _workBuffer = temp;
+                Graphics.Blit(source, newWork, _material, 2);
+                ReleaseBuffer(_workBuffer);
+                _workBuffer = newWork;
 
                 // Blit the result.
                 Graphics.Blit(_workBuffer, destination);
