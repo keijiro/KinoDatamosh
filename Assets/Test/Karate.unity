@@ -556,8 +556,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cdbbfa0d5bee14ea1bb3a8762969e899, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _blockSize: 24
+  _blockSize: 16
   _velocityScale: 0.8
+  _randomMove: 0.4
   _shader: {fileID: 4800000, guid: 998cec7a45d274e3995fbccf2c4480bf, type: 3}
 --- !u!4 &1563376559 stripped
 Transform:

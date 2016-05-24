@@ -63,7 +63,7 @@
 
         // keep moshing while the amount of the displacement is
         // lower than the threshold.
-        float thresh = _BlockSize * (0.2 + 5 * UVRandom(uv - t0.xx));
+        float thresh = _BlockSize * (0.75 + 1.25 * UVRandom(uv - t0.xx));
         alpha += any(abs(mv) > thresh);
 
         // pixel coordinates -> normalized coordinates
@@ -77,7 +77,7 @@
     {
         half4 disp = tex2D(_DispTex, i.uv);
         half4 src  = tex2D(_MainTex, i.uv);
-        half4 work = tex2D(_WorkTex, i.uv - disp.xy);
+        half4 work = tex2D(_WorkTex, i.uv - disp.xy * 0.98);
         return half4(lerp(work.rgb, src.rgb, disp.a), src.a);
     }
 
