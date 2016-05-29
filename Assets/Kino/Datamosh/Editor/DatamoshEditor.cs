@@ -31,14 +31,16 @@ namespace Kino
     public class DatamoshEditor : Editor
     {
         SerializedProperty _blockSize;
-        SerializedProperty _velocityScale;
-        SerializedProperty _randomMove;
+        SerializedProperty _quality;
+        SerializedProperty _velocity;
+        SerializedProperty _diffusion;
 
         void OnEnable()
         {
             _blockSize = serializedObject.FindProperty("_blockSize");
-            _velocityScale = serializedObject.FindProperty("_velocityScale");
-            _randomMove = serializedObject.FindProperty("_randomMove");
+            _quality = serializedObject.FindProperty("_quality");
+            _velocity = serializedObject.FindProperty("_velocity");
+            _diffusion = serializedObject.FindProperty("_diffusion");
         }
 
         public override void OnInspectorGUI()
@@ -46,8 +48,9 @@ namespace Kino
             serializedObject.Update();
 
             EditorGUILayout.PropertyField(_blockSize);
-            EditorGUILayout.PropertyField(_velocityScale);
-            EditorGUILayout.PropertyField(_randomMove);
+            EditorGUILayout.PropertyField(_quality);
+            EditorGUILayout.PropertyField(_velocity);
+            EditorGUILayout.PropertyField(_diffusion);
 
             serializedObject.ApplyModifiedProperties();
 
