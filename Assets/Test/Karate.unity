@@ -37,7 +37,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 2.2026372, g: 1.6956007, b: 1.0318061, a: 1}
+  m_IndirectSpecularColor: {r: 2.2029772, g: 1.6953282, b: 1.031956, a: 1}
 --- !u!157 &3
 LightmapSettings:
   m_ObjectHideFlags: 0
@@ -558,9 +558,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _blockSize: 16
-  _quality: 0.18
-  _velocity: 1
-  _diffusion: 2
+  _quality: 0.4
+  _velocity: 0.96
+  _diffusion: 1.6
   _shader: {fileID: 4800000, guid: 998cec7a45d274e3995fbccf2c4480bf, type: 3}
 --- !u!4 &1563376559 stripped
 Transform:

@@ -1,5 +1,5 @@
 ﻿//
-// Kino/Datamosh - Video compression artifact effect
+// Kino/Datamosh - Glitch effect simulating video compression artifacts
 //
 // Copyright (C) 2016 Keijiro Takahashi
 //

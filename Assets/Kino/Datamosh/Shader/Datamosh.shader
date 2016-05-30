@@ -1,5 +1,5 @@
 ﻿//
-// Kino/Datamosh - Video compression artifact effect
+// Kino/Datamosh - Glitch effect simulating video compression artifacts
 //
 // Copyright (C) 2016 Keijiro Takahashi
 //
@@ -58,20 +58,21 @@ Shader "Hidden/Kino/Datamosh"
         return frac(43758.5453 * sin(f));
     }
 
-    // Clears working buffer.
+    // Simply-clear-them-all shader
     half4 frag_init(v2f_img i) : SV_Target
     {
         return 0;
     }
 
-    // Updates displacement buffer.
+    // Displacement buffer updating shader
     half4 frag_update(v2f_img i) : SV_Target
     {
         float2 uv = i.uv;
         float2 t0 = float2(_Time.y, 0);
 
         // motion vector
-        half2 mv = tex2D(_CameraMotionVectorsTexture, uv).rg * _Velocity;
+        half2 mv = tex2D(_CameraMotionVectorsTexture, uv).rg;
+        mv *= _Velocity;
 
         // normalized coordinates -> pixel coordinates
         mv = mv * _ScreenParams.xy;
@@ -86,38 +87,45 @@ Shader "Hidden/Kino/Datamosh"
         // pixel perfect snap
         mv = round(mv);
 
-        // alpha value (0 = moshing, 1 = clean)
+        // motion accumulation in alpha channel
         half alpha = tex2D(_MainTex, i.uv).a;
-
-        // keep moshing while the amount of the displacement is
-        // lower than the threshold.
-        //float thresh = _BlockSize * (0.5 + UVRandom(uv - t0.xx));
-        //alpha += any(abs(mv * _Quality) > thresh);
-        alpha = min(100, alpha + length(mv * _Quality * 0.02) + UVRandom(uv - t0.xx) * _Quality * 0.01);
+        alpha += length(mv) * (pow(_Quality, 2) + 0.1) * 0.01;
+        alpha += UVRandom(uv - t0.xx) * pow(_Quality, 10) * 0.02;
 
         // pixel coordinates -> normalized coordinates
         mv *= (_ScreenParams.zw - 1);
 
-        //return half4(mv, 0, alpha > 0);
-        return half4(mv, 0, alpha);
+        // random number (changing by displacement)
+        half rnd = UVRandom(uv + dot(mv, 1));
+
+        return half4(mv, rnd, alpha);
     }
 
-    // Moshing!
+    // Moshing shader
     half4 frag_mosh(v2f_img i) : SV_Target
     {
         half4 disp = tex2D(_DispTex, i.uv);
         half4 src  = tex2D(_MainTex, i.uv);
-        half4 work = tex2D(_WorkTex, i.uv - disp.xy * 0.98);
+        half4 work = tex2D(_WorkTex, i.uv - disp.xy * 0.98); // make it dirty!
 
-        float2 uv = i.uv.xy * _ScreenParams.xy * 0.8;
-        float lv = lerp(sin(uv.x), sin(uv.y), UVRandom(floor(uv * _DispTex_TexelSize.xy) * _DispTex_TexelSize.zw + disp.x + disp.y));
+        // make DCT basis-ish noise pattern
+        float2 uv = i.uv * _DispTex_TexelSize.zw;
+        uv *= ceil(disp.z * 4) * (UNITY_PI * 4);
 
-        //work.rgb = saturate(work.rgb + (half3)(src.rgb) * 0.1 * lv * disp.a);
-        work.rgb = lerp(work.rgb, src.rgb, lv * (disp.a > 1 - 0.5 * _Quality));
+        float axis = 0.5 < frac(disp.z * 17.371356);
 
-        //return half4(work.rgb, src.a);
+        float dct = cos(lerp(uv.x, uv.y, axis)); 
+        dct *= frac(disp.z * 3305.121);
 
-        return half4(lerp(work.rgb, src.rgb, disp.a > (1.0 / (_Quality + 0.00001) - 0.05)), src.a);
+        // apply the DCT-ish noise when the motion is accumulated
+        dct *= disp.a > 0.8 - 0.3 * _Quality;
+        work.rgb = lerp(work.rgb, src.rgb, dct);
+
+        // cancel the noise when the motion is much accumulated
+        half clean = disp.a > (1 / (_Quality + 0.02));
+        half3 rgb = lerp(work.rgb, src.rgb, clean);
+
+        return half4(rgb, src.a);
     }
 
     ENDCG
