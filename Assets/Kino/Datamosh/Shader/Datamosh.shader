@@ -58,6 +58,27 @@ Shader "Hidden/Kino/Datamosh"
         return frac(43758.5453 * sin(f));
     }
 
+    // Vertex shader for multi texturing
+    struct v2f_multitex
+    {
+        float4 pos : SV_POSITION;
+        float2 uv0 : TEXCOORD0;
+        float2 uv1 : TEXCOORD1;
+    };
+
+    v2f_multitex vert_multitex(appdata_full v)
+    {
+        v2f_multitex o;
+        o.pos = mul(UNITY_MATRIX_MVP, v.vertex);
+        o.uv0 = v.texcoord.xy;
+        o.uv1 = v.texcoord.xy;
+    #if UNITY_UV_STARTS_AT_TOP
+        if (_MainTex_TexelSize.y < 0.0)
+            o.uv1.y = 1.0 - v.texcoord.y;
+    #endif
+        return o;
+    }
+
     // Simply-clear-them-all shader
     half4 frag_init(v2f_img i) : SV_Target
     {
@@ -102,14 +123,14 @@ Shader "Hidden/Kino/Datamosh"
     }
 
     // Moshing shader
-    half4 frag_mosh(v2f_img i) : SV_Target
+    half4 frag_mosh(v2f_multitex i) : SV_Target
     {
-        half4 disp = tex2D(_DispTex, i.uv);
-        half4 src  = tex2D(_MainTex, i.uv);
-        half4 work = tex2D(_WorkTex, i.uv - disp.xy * 0.98); // make it dirty!
+        half4 disp = tex2D(_DispTex, i.uv0);
+        half4 src  = tex2D(_MainTex, i.uv1);
+        half4 work = tex2D(_WorkTex, i.uv1 - disp.xy * 0.98); // make it dirty!
 
         // make DCT basis-ish noise pattern
-        float2 uv = i.uv * _DispTex_TexelSize.zw;
+        float2 uv = i.uv1 * _DispTex_TexelSize.zw;
         uv *= ceil(disp.z * 4) * (UNITY_PI * 4);
 
         float axis = 0.5 < frac(disp.z * 17.371356);
@@ -152,7 +173,7 @@ Shader "Hidden/Kino/Datamosh"
         Pass
         {
             CGPROGRAM
-            #pragma vertex vert_img
+            #pragma vertex vert_multitex
             #pragma fragment frag_mosh
             #pragma target 3.0
             ENDCG
