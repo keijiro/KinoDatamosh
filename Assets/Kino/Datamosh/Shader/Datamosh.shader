@@ -79,7 +79,7 @@ Shader "Hidden/Kino/Datamosh"
         return o;
     }
 
-    // Simply-clear-them-all shader
+    // Initialization shader
     half4 frag_init(v2f_img i) : SV_Target
     {
         return 0;
@@ -91,32 +91,33 @@ Shader "Hidden/Kino/Datamosh"
         float2 uv = i.uv;
         float2 t0 = float2(_Time.y, 0);
 
-        // motion vector
+        // Motion vector
         half2 mv = tex2D(_CameraMotionVectorsTexture, uv).rg;
         mv *= _Velocity;
 
-        // normalized coordinates -> pixel coordinates
+        // Normalized screen space -> Pixel coordinates
         mv = mv * _ScreenParams.xy;
 
-        // small random displacement
+        // Small random displacement (diffusion)
         float2 rmv = float2(
             UVRandom(uv + t0.xy),
             UVRandom(uv + t0.yx)
         );
         mv += (rmv - 0.5) * _Diffusion;
 
-        // pixel perfect snap
+        // Pixel perfect snapping
         mv = round(mv);
 
-        // motion accumulation in alpha channel
+        // Accumulates the amount of motion into the alpha channel.
         half alpha = tex2D(_MainTex, i.uv).a;
-        alpha += length(mv) * (pow(_Quality, 2) + 0.1) * 0.01;
-        alpha += UVRandom(uv - t0.xx) * pow(_Quality, 10) * 0.02;
+        alpha += length(mv) * 0.003;
+        alpha += UVRandom(uv - t0.xx) * lerp(-0.01, 0.005, _Quality);
+        alpha = saturate(alpha);
 
-        // pixel coordinates -> normalized coordinates
+        // Pixel coordinates -> Normalized screen space
         mv *= (_ScreenParams.zw - 1);
 
-        // random number (changing by displacement)
+        // Random number (changing by motion)
         half rnd = UVRandom(uv + dot(mv, 1));
 
         return half4(mv, rnd, alpha);
@@ -125,28 +126,29 @@ Shader "Hidden/Kino/Datamosh"
     // Moshing shader
     half4 frag_mosh(v2f_multitex i) : SV_Target
     {
+        // Color from the original image
+        half4 src = tex2D(_MainTex, i.uv1);
+
+        // Displacement vector (x, y, random, alpha)
         half4 disp = tex2D(_DispTex, i.uv0);
-        half4 src  = tex2D(_MainTex, i.uv1);
-        half4 work = tex2D(_WorkTex, i.uv1 - disp.xy * 0.98); // make it dirty!
 
-        // make DCT basis-ish noise pattern
-        float2 uv = i.uv1 * _DispTex_TexelSize.zw;
+        // Color from the working buffer (slightly scaled to make it blurred)
+        half3 work = tex2D(_WorkTex, i.uv1 - disp.xy * 0.98).rgb;
+
+        // Generate noise that resembles DCT basis patterns.
+        float axis = 0.5 < frac(disp.z * 17.37135); // vertical or horizontal?
+        float2 uv = i.uv1 * _DispTex_TexelSize.zw;  // basis frequency
         uv *= ceil(disp.z * 4) * (UNITY_PI * 4);
+        float dct = cos(lerp(uv.x, uv.y, axis));    // basis function
+        dct *= frac(disp.z * 3305.121);             // random amplitude
 
-        float axis = 0.5 < frac(disp.z * 17.371356);
+        // 0 < alpha <= 0.5 : Use the working buffer color.
+        // 0.5 < alpha < 1  : Apply the noise to the working buffer color.
+        // alpha == 1       : Use the source color.
+        float ws = lerp(dct * (disp.a > 0.5), 1, disp.a > 0.999);
+        work = lerp(work, src.rgb, ws);
 
-        float dct = cos(lerp(uv.x, uv.y, axis)); 
-        dct *= frac(disp.z * 3305.121);
-
-        // apply the DCT-ish noise when the motion is accumulated
-        dct *= disp.a > 0.8 - 0.3 * _Quality;
-        work.rgb = lerp(work.rgb, src.rgb, dct);
-
-        // cancel the noise when the motion is much accumulated
-        half clean = disp.a > (1 / (_Quality + 0.02));
-        half3 rgb = lerp(work.rgb, src.rgb, clean);
-
-        return half4(rgb, src.a);
+        return half4(work, src.a);
     }
 
     ENDCG
