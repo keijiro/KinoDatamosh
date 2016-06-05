@@ -48,6 +48,7 @@ Shader "Hidden/Kino/Datamosh"
 
     float _BlockSize;
     float _Quality;
+    float _Contrast;
     float _Velocity;
     float _Diffusion;
 
@@ -91,6 +92,13 @@ Shader "Hidden/Kino/Datamosh"
         float2 uv = i.uv;
         float2 t0 = float2(_Time.y, 0);
 
+        // Random numbers
+        float3 rand = float3(
+            UVRandom(uv + t0.xy),
+            UVRandom(uv + t0.yx),
+            UVRandom(uv.yx - t0.xx)
+        );
+
         // Motion vector
         half2 mv = tex2D(_CameraMotionVectorsTexture, uv).rg;
         mv *= _Velocity;
@@ -99,28 +107,29 @@ Shader "Hidden/Kino/Datamosh"
         mv = mv * _ScreenParams.xy;
 
         // Small random displacement (diffusion)
-        float2 rmv = float2(
-            UVRandom(uv + t0.xy),
-            UVRandom(uv + t0.yx)
-        );
-        mv += (rmv - 0.5) * _Diffusion;
+        mv += (rand.xy - 0.5) * _Diffusion;
 
         // Pixel perfect snapping
         mv = round(mv);
 
-        // Accumulates the amount of motion into the alpha channel.
-        half alpha = tex2D(_MainTex, i.uv).a;
-        alpha += min(length(mv), 5) * 0.005;
-        alpha += UVRandom(uv - t0.xx) * lerp(-0.02, 0.02, _Quality);
-        alpha = saturate(alpha);
+        // Accumulates the amount of motion.
+        half acc = tex2D(_MainTex, i.uv).a;
+        half mv_len = length(mv);
+        // - Simple update
+        half acc_update = acc + min(mv_len, _BlockSize) * 0.005;
+        acc_update += rand.z * lerp(-0.02, 0.02, _Quality);
+        // - Reset to random level
+        half acc_reset = rand.z * 0.5 + _Quality;
+        // - Reset if the amount of motion is larger than the block size.
+        acc = saturate(mv_len > _BlockSize ? acc_reset : acc_update);
 
         // Pixel coordinates -> Normalized screen space
         mv *= (_ScreenParams.zw - 1);
 
         // Random number (changing by motion)
-        half rnd = UVRandom(uv + dot(mv, 1));
+        half mrand = UVRandom(uv + mv_len);
 
-        return half4(mv, rnd, alpha);
+        return half4(mv, mrand, acc);
     }
 
     // Moshing shader
@@ -129,26 +138,31 @@ Shader "Hidden/Kino/Datamosh"
         // Color from the original image
         half4 src = tex2D(_MainTex, i.uv1);
 
-        // Displacement vector (x, y, random, alpha)
+        // Displacement vector (x, y, random, acc)
         half4 disp = tex2D(_DispTex, i.uv0);
 
         // Color from the working buffer (slightly scaled to make it blurred)
         half3 work = tex2D(_WorkTex, i.uv1 - disp.xy * 0.98).rgb;
 
-        // Generate noise that resembles DCT basis patterns.
-        float axis = 0.5 < frac(disp.z * 17.37135); // vertical or horizontal?
-        float2 uv = i.uv1 * _DispTex_TexelSize.zw;  // basis frequency
-        uv *= ceil(disp.z * 4) * (UNITY_PI * 4);
-        float dct = cos(lerp(uv.x, uv.y, axis));    // basis function
-        dct *= frac(disp.z * 3305.121);             // random amplitude
+        // Generate some pseudo random numbers.
+        float4 rand = frac(float4(1, 17.37135, 841.4272, 3305.121) * disp.z);
 
-        // 0 < alpha <= 0.5 : Use the working buffer color.
-        // 0.5 < alpha < 1  : Apply the noise to the working buffer color.
-        // alpha == 1       : Use the source color.
-        float ws = lerp(dct * (disp.a > 0.5), 1, disp.a > 0.999);
-        work = lerp(work, src.rgb, ws);
+        // Generate noise patterns that look like DCT bases.
+        // - Frequency
+        float2 uv = i.uv1 * _DispTex_TexelSize.zw * (rand.x * 80 / _Contrast);
+        // - Basis wave (vertical or horizontal)
+        float dct = cos(lerp(uv.x, uv.y, 0.5 < rand.y));
+        // - Random amplitude (the high freq, the less amp)
+        dct *= rand.z * (1 - rand.x) * _Contrast;
 
-        return half4(work, src.a);
+        // Conditional weighting
+        // - DCT-ish noise: acc > 0.5
+        float cw = (disp.w > 0.5) * dct;
+        // - Original image: rand < (Q * 0.8 + 0.2) && acc == 1.0
+        cw = lerp(cw, 1, rand.w < lerp(0.2, 1, _Quality) * (disp.w > 0.999));
+        // - If the conditions above are not met, choose work.
+
+        return half4(lerp(work, src.rgb, cw), src.a);
     }
 
     ENDCG

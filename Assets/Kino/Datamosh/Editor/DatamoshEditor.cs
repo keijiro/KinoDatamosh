@@ -32,6 +32,7 @@ namespace Kino
     {
         SerializedProperty _blockSize;
         SerializedProperty _quality;
+        SerializedProperty _contrast;
         SerializedProperty _velocity;
         SerializedProperty _diffusion;
 
@@ -39,6 +40,7 @@ namespace Kino
         {
             _blockSize = serializedObject.FindProperty("_blockSize");
             _quality = serializedObject.FindProperty("_quality");
+            _contrast = serializedObject.FindProperty("_contrast");
             _velocity = serializedObject.FindProperty("_velocity");
             _diffusion = serializedObject.FindProperty("_diffusion");
         }
@@ -49,6 +51,7 @@ namespace Kino
 
             EditorGUILayout.PropertyField(_blockSize);
             EditorGUILayout.PropertyField(_quality);
+            EditorGUILayout.PropertyField(_contrast);
             EditorGUILayout.PropertyField(_velocity);
             EditorGUILayout.PropertyField(_diffusion);
 

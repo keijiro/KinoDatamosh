@@ -50,6 +50,16 @@ namespace Kino
         [Tooltip("Quality coefficient.")]
         float _quality = 0.5f;
 
+        /// Noise contrast.
+        public float contrast {
+            get { return _contrast; }
+            set { _contrast = value; }
+        }
+
+        [SerializeField, Range(0.5f, 4.0f)]
+        [Tooltip("Noise contrast.")]
+        float _contrast = 1;
+
         /// Scale factor for velocity vectors.
         public float velocity {
             get { return _velocity; }
@@ -149,6 +159,7 @@ namespace Kino
         {
             _material.SetFloat("_BlockSize", _blockSize);
             _material.SetFloat("_Quality", _quality);
+            _material.SetFloat("_Contrast", _contrast);
             _material.SetFloat("_Velocity", _velocity);
             _material.SetFloat("_Diffusion", _diffusion);
 
