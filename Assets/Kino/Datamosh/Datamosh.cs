@@ -40,35 +40,35 @@ namespace Kino
         [Tooltip("Size of compression macroblock.")]
         int _blockSize = 16;
 
-        /// Quality coefficient.
-        public float quality {
-            get { return _quality; }
-            set { _quality = value; }
+        /// Entropy coefficient. The larger value makes the stronger noise.
+        public float entropy {
+            get { return _entropy; }
+            set { _entropy = value; }
         }
 
         [SerializeField, Range(0, 1)]
-        [Tooltip("Quality coefficient.")]
-        float _quality = 0.5f;
+        [Tooltip("Entropy coefficient. The larger value makes the stronger noise.")]
+        float _entropy = 0.5f;
 
-        /// Noise contrast.
-        public float contrast {
-            get { return _contrast; }
-            set { _contrast = value; }
+        /// Contrast of stripe-shaped noise.
+        public float noiseContrast {
+            get { return _noiseContrast; }
+            set { _noiseContrast = value; }
         }
 
         [SerializeField, Range(0.5f, 4.0f)]
-        [Tooltip("Noise contrast.")]
-        float _contrast = 1;
+        [Tooltip("Contrast of stripe-shaped noise.")]
+        float _noiseContrast = 1;
 
         /// Scale factor for velocity vectors.
-        public float velocity {
-            get { return _velocity; }
-            set { _velocity = value; }
+        public float velocityScale {
+            get { return _velocityScale; }
+            set { _velocityScale = value; }
         }
 
         [SerializeField, Range(0, 2)]
         [Tooltip("Scale factor for velocity vectors.")]
-        float _velocity = 0.8f;
+        float _velocityScale = 0.8f;
 
         /// Amount of random displacement.
         public float diffusion {
@@ -158,9 +158,9 @@ namespace Kino
         void OnRenderImage(RenderTexture source, RenderTexture destination)
         {
             _material.SetFloat("_BlockSize", _blockSize);
-            _material.SetFloat("_Quality", _quality);
-            _material.SetFloat("_Contrast", _contrast);
-            _material.SetFloat("_Velocity", _velocity);
+            _material.SetFloat("_Quality", 1 - _entropy);
+            _material.SetFloat("_Contrast", _noiseContrast);
+            _material.SetFloat("_Velocity", _velocityScale);
             _material.SetFloat("_Diffusion", _diffusion);
 
             if (_sequence == 0)

@@ -605,9 +605,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _blockSize: 16
-  _quality: 0.25
-  _velocity: 0.98
-  _diffusion: 0.7
+  _entropy: 0.7
+  _noiseContrast: 1.4
+  _velocityScale: 0.9
+  _diffusion: 0.8
   _shader: {fileID: 4800000, guid: 998cec7a45d274e3995fbccf2c4480bf, type: 3}
 --- !u!4 &1563376559 stripped
 Transform:
