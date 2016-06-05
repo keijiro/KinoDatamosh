@@ -24,7 +24,7 @@ GameObject:
   - 23: {fileID: 23000013701425442}
   - 54: {fileID: 54000012576663662}
   m_Layer: 0
-  m_Name: Cube
+  m_Name: Box
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
