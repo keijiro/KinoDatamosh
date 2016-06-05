@@ -95,6 +95,7 @@ namespace Kino
         RenderTexture _dispBuffer; // displacement buffer
 
         int _sequence;
+        int _lastFrame;
 
         RenderTexture NewWorkBuffer(RenderTexture source)
         {
@@ -182,19 +183,24 @@ namespace Kino
             {
                 // Step 2: apply effect.
 
-                // Update the displaceent buffer.
-                var newDisp = NewDispBuffer(source);
-                Graphics.Blit(_dispBuffer, newDisp, _material, 1);
-                ReleaseBuffer(_dispBuffer);
-                _dispBuffer = newDisp;
+                if (Time.frameCount != _lastFrame)
+                {
+                    // Update the displaceent buffer.
+                    var newDisp = NewDispBuffer(source);
+                    Graphics.Blit(_dispBuffer, newDisp, _material, 1);
+                    ReleaseBuffer(_dispBuffer);
+                    _dispBuffer = newDisp;
 
-                // Moshing!
-                var newWork = NewWorkBuffer(source);
-                _material.SetTexture("_WorkTex", _workBuffer);
-                _material.SetTexture("_DispTex", _dispBuffer);
-                Graphics.Blit(source, newWork, _material, 2);
-                ReleaseBuffer(_workBuffer);
-                _workBuffer = newWork;
+                    // Moshing!
+                    var newWork = NewWorkBuffer(source);
+                    _material.SetTexture("_WorkTex", _workBuffer);
+                    _material.SetTexture("_DispTex", _dispBuffer);
+                    Graphics.Blit(source, newWork, _material, 2);
+                    ReleaseBuffer(_workBuffer);
+                    _workBuffer = newWork;
+
+                    _lastFrame = Time.frameCount;
+                }
 
                 // Blit the result.
                 Graphics.Blit(_workBuffer, destination);

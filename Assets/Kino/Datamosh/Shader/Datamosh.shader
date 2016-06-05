@@ -110,8 +110,8 @@ Shader "Hidden/Kino/Datamosh"
 
         // Accumulates the amount of motion into the alpha channel.
         half alpha = tex2D(_MainTex, i.uv).a;
-        alpha += length(mv) * 0.003;
-        alpha += UVRandom(uv - t0.xx) * lerp(-0.01, 0.005, _Quality);
+        alpha += min(length(mv), 5) * 0.005;
+        alpha += UVRandom(uv - t0.xx) * lerp(-0.02, 0.02, _Quality);
         alpha = saturate(alpha);
 
         // Pixel coordinates -> Normalized screen space
